@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equilibrio · Plan integral hígado &amp; cortisol</title>
+<meta name="description" content="Plan de 4 semanas para pérdida de peso sostenible, reversión de hígado graso y manejo de cortisol.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+        <circle cx="13" cy="16" r="10" fill="var(--sage)" opacity="0.85"/>
+        <circle cx="20" cy="16" r="10" fill="var(--clay)" opacity="0.7"/>
+      </svg>
+      Equilibrio
+    </span>
+    <span class="topbar-week" id="topbarWeek">Semana 1 de 4</span>
+  </div>
+</header>
+
+<!-- ============ MAIN VIEWS ============ -->
+<main>
+
+  <!-- ---------- 1. MI PERFIL ---------- -->
+  <section id="perfil" class="view view-active" aria-labelledby="perfil-title">
+    <div class="view-inner">
+      <p class="eyebrow">Sección 1</p>
+      <h1 id="perfil-title">Mi perfil</h1>
+      <p class="lede">Registra tus medidas para ver tu progreso real a lo largo de las 4 semanas. Nada se borra al cerrar el navegador: queda guardado en este dispositivo.</p>
+
+      <div class="balance-card" role="group" aria-label="Resumen de balance">
+        <div class="balance-dial-wrap">
+          <svg viewBox="0 0 140 140" class="balance-dial" id="balanceDial" aria-hidden="true">
+            <circle cx="70" cy="70" r="58" class="dial-track"/>
+            <circle cx="70" cy="70" r="58" class="dial-progress" id="dialProgress" stroke-dasharray="364" stroke-dashoffset="364"/>
+            <circle cx="70" cy="70" r="44" class="dial-track dial-track-inner"/>
+            <circle cx="70" cy="70" r="44" class="dial-progress dial-progress-inner" id="dialProgressInner" stroke-dasharray="276" stroke-dashoffset="276"/>
+          </svg>
+          <div class="dial-center">
+            <span class="dial-imc" id="dialIMC">--</span>
+            <span class="dial-label">IMC</span>
+          </div>
+        </div>
+        <div class="balance-legend">
+          <div class="legend-item"><span class="dot dot-sage"></span> Progreso de peso</div>
+          <div class="legend-item"><span class="dot dot-clay"></span> Adherencia semanal</div>
+        </div>
+      </div>
+
+      <form id="profileForm" class="card form-card">
+        <h2 class="card-title">Mis datos</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span>Edad</span>
+            <input type="number" id="fEdad" min="15" max="100" placeholder="años" required>
+          </label>
+          <label class="field">
+            <span>Sexo</span>
+            <select id="fSexo" required>
+              <option value="" disabled selected>Elegir</option>
+              <option value="F">Femenino</option>
+              <option value="M">Masculino</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Estatura</span>
+            <input type="number" id="fEstatura" min="120" max="220" placeholder="cm" required>
+          </label>
+          <label class="field">
+            <span>Peso actual</span>
+            <input type="number" id="fPeso" min="30" max="300" step="0.1" placeholder="kg" required>
+          </label>
+          <label class="field">
+            <span>Cintura</span>
+            <input type="number" id="fCintura" min="40" max="200" step="0.1" placeholder="cm (opcional)">
+          </label>
+          <label class="field">
+            <span>Cadera</span>
+            <input type="number" id="fCadera" min="40" max="200" step="0.1" placeholder="cm (opcional)">
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar medición de hoy</button>
+        <p class="form-hint" id="profileHint"></p>
+      </form>
+
+      <div class="card">
+        <h2 class="card-title">Historial de peso</h2>
+        <div id="weightChart" class="weight-chart" aria-label="Gráfica de evolución de peso"></div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+
+      <div class="callout callout-medical">
+        <strong>Importante.</strong> Esta app es una herramienta de organización personal, no reemplaza tu seguimiento con hepatología/endocrinología. Comparte estos registros en tus citas de control.
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- 2. MI ALIMENTACIÓN ---------- -->
+  <section id="alimentacion" class="view" aria-labelledby="alimentacion-title">
+    <div class="view-inner">
+      <p class="eyebrow">Sección 2</p>
+      <h1 id="alimentacion-title">Mi alimentación</h1>
+      <p class="lede">Plan antiinflamatorio de 4 semanas, pensado para hígado graso y cortisol, con ingredientes de supermercados comunes en CDMX y Edomex. Estructura base: 3 comidas + 2 colaciones, cada 3-4 h, sin ayunos prolongados que disparen cortisol.</p>
+
+      <div class="day-tabs" id="dayTabsNutricion" role="tablist" aria-label="Día"></div>
+
+      <div id="mealPlanContainer" class="meal-plan"></div>
+
+      <div class="card">
+        <h2 class="card-title">Lista de despensa base (Chedraui / Walmart / Costco)</h2>
+        <div id="pantryList" class="pantry-grid"></div>
+      </div>
+
+      <div class="callout">
+        <strong>Regla simple para hígado graso:</strong> entre menos etiqueta tenga, mejor. Prioriza el pasillo de frutas/verduras/proteína sobre productos empaquetados, y evita jugos, refrescos y pan dulce de forma cotidiana.
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- 3. MIS RUTINAS ---------- -->
+  <section id="rutinas" class="view" aria-labelledby="rutinas-title">
+    <div class="view-inner">
+      <p class="eyebrow">Sección 3</p>
+      <h1 id="rutinas-title">Mis rutinas</h1>
+      <p class="lede">4-5 sesiones por semana en Action Black, combinando fuerza funcional y boxeo, más cardio ligero. La intensidad sube de forma gradual en 4 semanas para no generar estrés suprarrenal crónico.</p>
+
+      <div class="week-tabs" id="weekTabsRutina" role="tablist" aria-label="Semana de entrenamiento"></div>
+      <div id="trainingPlanContainer" class="training-plan"></div>
+
+      <div class="card">
+        <h2 class="card-title">Manejo del estrés — práctica diaria</h2>
+        <div id="stressTechniques" class="stress-grid"></div>
+      </div>
+
+      <div class="callout">
+        <strong>Señal de alarma:</strong> si después de entrenar sientes fatiga extrema, insomnio o más antojos de azúcar al día siguiente, es señal de sobreentrenamiento/cortisol elevado — baja intensidad esa semana, no la subas.
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------- 4. CORTISOL E HÍGADO GRASO ---------- -->
+  <section id="manejo" class="view" aria-labelledby="manejo-title">
+    <div class="view-inner">
+      <p class="eyebrow">Sección 4</p>
+      <h1 id="manejo-title">Manejo de cortisol e hígado graso</h1>
+      <p class="lede">Hábitos clave y suplementos de apoyo con respaldo general en evidencia. <strong>Ninguno sustituye tratamiento médico</strong>: como ya tienes diagnóstico confirmado, valida cada suplemento con tu hepatólogo/endocrinólogo antes de tomarlo.</p>
+
+      <div class="card callout-medical-strong">
+        <strong>Disclaimer médico.</strong> El hígado metaboliza la mayoría de los suplementos. En hígado graso, algunos requieren ajuste de dosis o están contraindicados según tus estudios (transaminasas, perfil hepático). Esta sección es educativa, no es una prescripción.
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Pilares no negociables</h2>
+        <div id="pillarsList" class="pillars-grid"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Suplementos de apoyo (consultar con tu médico)</h2>
+        <div id="supplementsList" class="supplements-grid"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Higiene de sueño (clave para cortisol)</h2>
+        <div id="sleepList" class="sleep-grid"></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav class="bottom-nav" aria-label="Navegación principal">
+  <button class="nav-btn nav-active" data-target="perfil" aria-current="page">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    <span>Perfil</span>
+  </button>
+  <button class="nav-btn" data-target="alimentacion">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 2v8a3 3 0 0 0 6 0V2M9 10v12M18 2c-2 2-2 5-2 7a2 2 0 0 0 4 0c0-2 0-5-2-7zM18 13v9"/></svg>
+    <span>Alimentación</span>
+  </button>
+  <button class="nav-btn" data-target="rutinas">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6.5 6.5l11 11M3 8l5-5 3 3-5 5-3-3zm10 10l5-5 3 3-5 5-3-3z"/></svg>
+    <span>Rutinas</span>
+  </button>
+  <button class="nav-btn" data-target="manejo">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2C9 6 6 9.5 6 13.5a6 6 0 0 0 12 0C18 9.5 15 6 12 2z"/></svg>
+    <span>Cortisol</span>
+  </button>
+</nav>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
