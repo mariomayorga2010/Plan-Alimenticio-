@@ -22,7 +22,10 @@
       </svg>
       Equilibrio
     </span>
-    <span class="topbar-week" id="topbarWeek">Semana 1 de 4</span>
+    <div class="topbar-controls">
+      <select id="monthSelect" class="month-select" aria-label="Mes o ciclo del plan"></select>
+      <span class="topbar-week" id="topbarWeek">Semana 1 de 4</span>
+    </div>
   </div>
 </header>
 
@@ -158,8 +161,21 @@
       </div>
 
       <div class="card">
-        <h2 class="card-title">Pilares no negociables</h2>
-        <div id="pillarsList" class="pillars-grid"></div>
+        <div class="card-title-row">
+          <h2 class="card-title">Pilares no negociables — checklist diario</h2>
+          <label class="date-picker">
+            <span>Día</span>
+            <input type="date" id="checklistDate">
+          </label>
+        </div>
+        <p class="form-hint form-hint-static" id="checklistDayHint"></p>
+        <div id="pillarsChecklist" class="pillars-checklist"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Tu constancia — 4 semanas</h2>
+        <p class="lede" style="max-width:none;">Cada celda es un día. Entre más lleno el círculo, más pilares cumpliste ese día. Toca un día para registrarlo o editarlo.</p>
+        <div id="checklistCalendar" class="checklist-calendar"></div>
       </div>
 
       <div class="card">

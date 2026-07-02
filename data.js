@@ -7,8 +7,11 @@
 
 const DAY_NAMES = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 
-/* ---------------- ALIMENTACIÓN: menú semanal base ---------------- */
-const MEAL_PLAN = [
+/* Nombre del usuario, usado en los saludos de cada sección. Edítalo aquí si cambia. */
+const USER_NAME = "Mario Mayorga";
+
+/* ---------------- ALIMENTACIÓN: menú semanal — JUNIO 2026 ---------------- */
+const MEAL_PLAN_2026_06 = [
   { // Lunes
     desayuno: { name:"Huevos a la mexicana + nopales asados", detail:"2 huevos, jitomate, cebolla, chile serrano al gusto, 1 taza de nopales asados, 1/2 aguacate. 1 tortilla de maíz si gustas.", kcal:"~380 kcal" },
     colacion1:{ name:"Almendras + manzana", detail:"15 almendras naturales + 1 manzana chica.", kcal:"~160 kcal" },
@@ -70,8 +73,8 @@ const PANTRY = [
   { cat:"Antiinflamatorios / despensa especial", items:["Chía","Canela","Cúrcuma","Jengibre","Limón","Té de jamaica/verde sin azúcar"] }
 ];
 
-/* ---------------- RUTINAS: 4 semanas progresivas (Action Black) ---------------- */
-const TRAINING_WEEKS = [
+/* ---------------- RUTINAS: 4 semanas — JUNIO 2026 (Action Black) ---------------- */
+const TRAINING_WEEKS_2026_06 = [
   { // Semana 1 — adaptación
     label:"Semana 1 · Adaptación",
     note:"Cargas e intensidad bajas-moderadas. El objetivo es aprender técnica y activar el cuerpo sin generar estrés excesivo.",
@@ -223,13 +226,39 @@ const STRESS_TECHNIQUES = [
   { tag:"Semanal", name:"Tiempo social/ocio no productivo", detail:"Al menos una actividad placentera sin agenda de por medio: la sensación de urgencia constante eleva cortisol basal." }
 ];
 
-/* ---------------- Pilares hígado/cortisol ---------------- */
+/* ---------------- Pilares hígado/cortisol (checklist diario) ---------------- */
+// 'icon' es el contenido interno (paths) de un <svg viewBox="0 0 24 24">, estilo trazo, igual que los íconos de la nav.
 const PILLARS = [
-  { name:"Pérdida de peso gradual", detail:"0.5–0.75 kg por semana. Perder peso más rápido se ha asociado a empeorar la inflamación hepática en hígado graso." },
-  { name:"Reducir azúcar y fructosa añadida", detail:"Refrescos, jugos, pan dulce: son de los factores dietéticos más asociados a esteatosis hepática. No requieren eliminarse al 100%, sí hacerse infrecuentes." },
-  { name:"Horarios de comida regulares", detail:"Comer cada 3-4 h evita picos de cortisol por hipoglucemia y reduce atracones nocturnos." },
-  { name:"Sueño de 7-9 horas", detail:"La privación de sueño eleva cortisol y empeora la resistencia a la insulina en menos de una semana." },
-  { name:"Movimiento diario, no solo entrenamiento", detail:"Caminar después de comer (10-15 min) ayuda a controlar la glucosa postprandial, lo cual descarga trabajo al hígado." }
+  {
+    id:"peso_gradual",
+    name:"Pérdida de peso gradual",
+    detail:"0.5–0.75 kg por semana. Perder peso más rápido se ha asociado a empeorar la inflamación hepática en hígado graso.",
+    icon:`<path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/>`
+  },
+  {
+    id:"sin_azucar",
+    name:"Sin azúcar / fructosa añadida hoy",
+    detail:"Refrescos, jugos, pan dulce: de los factores dietéticos más asociados a esteatosis hepática. No requieren eliminarse al 100%, sí hacerse infrecuentes.",
+    icon:`<path d="M5 3h14l-1.5 9a5.5 5.5 0 0 1-11 0L5 3z"/><path d="M9 3v0M15 3v0"/><path d="M9 21h6"/><path d="M12 17v4"/>`
+  },
+  {
+    id:"horarios",
+    name:"Horarios de comida regulares",
+    detail:"Comer cada 3-4 h evita picos de cortisol por hipoglucemia y reduce atracones nocturnos.",
+    icon:`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>`
+  },
+  {
+    id:"sueno",
+    name:"Dormí entre 7 y 9 horas",
+    detail:"La privación de sueño eleva cortisol y empeora la resistencia a la insulina en menos de una semana.",
+    icon:`<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>`
+  },
+  {
+    id:"movimiento",
+    name:"Movimiento diario fuera del entrenamiento",
+    detail:"Caminar después de comer (10-15 min) ayuda a controlar la glucosa postprandial, lo cual descarga trabajo al hígado.",
+    icon:`<circle cx="9" cy="5" r="1.6"/><path d="M6 22l2-7-2-2 1-5 4-1 3 3h3"/><path d="M9 14l3 2 2 6"/>`
+  }
 ];
 
 /* ---------------- Suplementos (educativo) ---------------- */
@@ -248,3 +277,41 @@ const SLEEP_TIPS = [
   { name:"Cafeína antes de las 14:00", detail:"La cafeína tardía prolonga el cortisol elevado por más horas de las que se perciben." },
   { name:"Cena ligera, no copiosa", detail:"Evitar comidas muy pesadas o tardías que dificulten la digestión nocturna." }
 ];
+
+/* =========================================================
+   PLANS — catálogo de meses/ciclos
+   ---------------------------------------------------------
+   Cada clave es un mes en formato "YYYY-MM" y controla lo que
+   se muestra en "Mi Alimentación" y "Mis Rutinas". El perfil
+   (peso/IMC) y el checklist de cortisol NO dependen de esto:
+   esos ya se guardan por fecha exacta y siguen funcionando
+   sin importar cuántos meses agregues aquí.
+
+   CÓMO AGREGAR UN MES NUEVO (ej. agosto 2026):
+   1) Copia un bloque MEAL_PLAN_2026_06 completo (arriba en este
+      archivo), pégalo debajo con otro nombre, ej:
+        const MEAL_PLAN_2026_08 = [ ... ];
+      y edita los platillos/kcal.
+   2) Haz lo mismo con TRAINING_WEEKS_2026_06 → TRAINING_WEEKS_2026_08,
+      ajustando ejercicios/cargas según cómo te fue el mes anterior.
+   3) Agrega una entrada nueva aquí abajo en PLANS:
+        "2026-08": { label:"Agosto 2026", meals: MEAL_PLAN_2026_08, training: TRAINING_WEEKS_2026_08 }
+   4) Listo — el selector de mes en la app la detecta sola,
+      no hay que tocar script.js ni index.html.
+   ========================================================= */
+const PLANS = {
+  "2026-06": {
+    label: "Junio 2026",
+    meals: MEAL_PLAN_2026_06,
+    training: TRAINING_WEEKS_2026_06
+  },
+  // PLANTILLA: duplica el bloque de junio arriba en el archivo con otro
+  // nombre (ej. MEAL_PLAN_2026_07) y referencia aquí. Por ahora julio
+  // reutiliza el contenido de junio para que no se rompa el selector;
+  // edítalo cuando tengas el plan real de ese mes.
+  "2026-07": {
+    label: "Julio 2026 (plantilla — edítame en data.js)",
+    meals: MEAL_PLAN_2026_06,
+    training: TRAINING_WEEKS_2026_06
+  }
+};

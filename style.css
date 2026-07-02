@@ -63,7 +63,13 @@ button{ font-family: inherit; }
 }
 .brand{ display:flex; align-items:center; gap:8px; font-family: var(--font-display); font-weight:600; font-size:1.15rem; }
 .brand-mark{ flex-shrink:0; }
-.topbar-week{ font-family: var(--font-mono); font-size: 0.78rem; color: var(--moss-soft); background: var(--paper); padding:5px 10px; border-radius: 999px; border:1px solid var(--line); }
+.topbar-controls{ display:flex; align-items:center; gap:8px; }
+.month-select{
+  font-family: var(--font-mono); font-size: 0.78rem; font-weight:700; color: var(--moss);
+  background: var(--paper); border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 10px; cursor:pointer; max-width: 40vw;
+}
+.topbar-week{ font-family: var(--font-mono); font-size: 0.78rem; color: var(--moss-soft); background: var(--paper); padding:5px 10px; border-radius: 999px; border:1px solid var(--line); white-space:nowrap; }
 
 main{ max-width: 720px; margin: 0 auto; }
 .view{ display:none; animation: fadeIn .35s ease; }
@@ -154,16 +160,33 @@ main{ max-width: 720px; margin: 0 auto; }
 .btn-secondary{ background: transparent; border: 1.5px solid var(--moss); color: var(--moss); }
 .form-hint{ margin: 10px 0 0; font-size: 0.85rem; color: var(--sage-deep); min-height: 1.2em; font-weight:600; }
 
+/* ---------- Saludo personalizado ---------- */
+.user-greeting{
+  font-family: var(--font-body); font-weight:700; font-size: 0.92rem;
+  color: var(--sage-deep); margin: 0 0 6px;
+}
+
 /* ---------- Weight chart ---------- */
 .weight-chart{ width:100%; height: 140px; }
 .weight-chart svg{ width:100%; height:100%; overflow: visible; }
 .history-list{ margin-top: 14px; display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow-y:auto; }
 .history-row{
-  display:flex; justify-content:space-between; align-items:center;
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
   font-family: var(--font-mono); font-size: 0.83rem;
   padding: 8px 10px; background: var(--sand); border-radius: var(--radius-s);
 }
-.history-row span:last-child{ font-weight:700; }
+.history-row span:nth-child(2){ font-weight:700; }
+.history-delete-btn{
+  flex-shrink:0; width:24px; height:24px; border-radius:50%; border:1.5px solid var(--line);
+  background: var(--paper); color: var(--danger); cursor:pointer; font-size:0.9rem; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.history-delete-btn:active{ transform: scale(0.92); }
+
+/* ---------- Silueta de referencia IMC ---------- */
+.silhouette-row{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.silhouette-cat{ font-family: var(--font-display); font-size:1.1rem; font-weight:600; margin:0 0 2px; color: var(--moss); }
+.silhouette-imc{ font-family: var(--font-mono); font-size:0.85rem; color: var(--moss-soft); margin:0 0 6px; }
 
 /* ---------- Tabs (week / day) ---------- */
 .week-tabs, .day-tabs{
@@ -184,16 +207,81 @@ main{ max-width: 720px; margin: 0 auto; }
   background: var(--paper); border:1px solid var(--line); border-radius: var(--radius-m);
   padding: 16px;
 }
-.meal-card-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+.meal-card.is-custom{ border-color: var(--sage); background: #F3F7EF; }
+.meal-card-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; gap:8px; }
 .meal-type{ font-family: var(--font-mono); text-transform:uppercase; font-size:0.7rem; letter-spacing:0.08em; color: var(--sage-deep); font-weight:700; }
-.meal-kcal{ font-family: var(--font-mono); font-size: 0.78rem; color: var(--moss-soft); }
+.meal-type-tag{ display:inline-block; margin-left:6px; font-family: var(--font-mono); font-size:0.62rem; background: var(--sage); color:var(--paper); padding:1px 6px; border-radius:999px; text-transform:none; letter-spacing:0; }
+.meal-kcal{ font-family: var(--font-mono); font-size: 0.78rem; color: var(--moss-soft); white-space:nowrap; }
 .meal-name{ font-weight: 700; margin-bottom: 4px; }
 .meal-detail{ font-size: 0.87rem; color: var(--moss-soft); margin:0; }
+.meal-card-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
 
 .pantry-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pantry-cat{ font-size: 0.85rem; }
 .pantry-cat strong{ display:block; font-family: var(--font-display); font-size: 0.95rem; margin-bottom: 4px; }
 .pantry-cat ul{ margin:0; padding-left: 18px; color: var(--moss-soft); }
+
+/* ---------- Share (WhatsApp) button ---------- */
+.share-btn{
+  display:inline-flex; align-items:center; gap:6px;
+  background: #E9F6EE; color: #1F7A4D; border:1px solid #BFE3CC;
+  font-family: var(--font-body); font-weight:700; font-size: 0.78rem;
+  padding: 7px 12px; border-radius: 999px; cursor:pointer;
+}
+.share-btn:active{ transform: scale(0.96); }
+.share-btn svg{ width:15px; height:15px; fill: currentColor; }
+.day-card-share{ margin-top:10px; display:flex; justify-content:flex-end; }
+
+/* ---------- Collapsible "add" cards ---------- */
+.toggle-card-btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between;
+  background:none; border:none; padding:0; cursor:pointer;
+  font-family: var(--font-display); font-size:1.05rem; font-weight:600; color: var(--moss);
+}
+.toggle-chevron{ width:20px; height:20px; fill:none; stroke: var(--moss-soft); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition: transform .2s ease; }
+.toggle-card-btn[aria-expanded="true"] .toggle-chevron{ transform: rotate(180deg); }
+.collapsible{ margin-top: 16px; }
+
+.form-card-plain{ display:flex; flex-direction:column; gap:12px; margin-top: 4px; }
+.field-grid-3{ grid-template-columns: 1fr; }
+@media (min-width:600px){ .field-grid-3{ grid-template-columns: 1fr 1fr 1fr; } }
+.field-full{ grid-column: 1 / -1; }
+.field textarea{
+  font-family: var(--font-body); font-size: 0.92rem; padding: 11px 12px;
+  border-radius: var(--radius-s); border: 1.5px solid var(--line); background: var(--sand); color: var(--moss);
+  resize: vertical;
+}
+.field textarea:focus{ border-color: var(--sage); }
+.btn-small{ width:auto; padding: 9px 16px; font-size:0.85rem; margin-top:0; }
+
+.exercise-form-list{ display:flex; flex-direction:column; gap:8px; }
+.exercise-form-row{ display:grid; grid-template-columns: 1fr 100px auto; gap:8px; align-items:center; }
+.exercise-form-row input{
+  font-family: var(--font-body); font-size:0.88rem; padding:9px 10px;
+  border-radius: var(--radius-s); border:1.5px solid var(--line); background: var(--sand); color: var(--moss);
+}
+.exercise-remove-btn{
+  width:34px; height:34px; border-radius: var(--radius-s); border:1.5px solid var(--line);
+  background: var(--paper); color: var(--danger); cursor:pointer; font-size:1rem; line-height:1;
+}
+
+.json-import{ margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 14px; }
+.json-import summary{ cursor:pointer; font-weight:700; font-size:0.9rem; color: var(--sage-deep); }
+.json-textarea{
+  width:100%; margin-top:10px; font-family: var(--font-mono); font-size:0.8rem;
+  padding: 11px 12px; border-radius: var(--radius-s); border: 1.5px solid var(--line);
+  background: var(--sand); color: var(--moss); resize: vertical;
+}
+.json-import code{ background: var(--sand-deep); padding:1px 5px; border-radius:4px; font-size:0.76rem; word-break:break-all; }
+
+.custom-items-list{ margin-top:16px; display:flex; flex-direction:column; gap:8px; }
+.custom-item-row{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  background: var(--sand); border-radius: var(--radius-s); padding: 9px 12px; font-size:0.83rem;
+}
+.custom-item-remove{
+  flex-shrink:0; background:none; border:none; color: var(--danger); font-weight:700; cursor:pointer; font-size:0.8rem;
+}
 
 /* ---------- Training plan ---------- */
 .training-plan{ margin-top: 16px; display:flex; flex-direction:column; gap:12px; }
@@ -202,13 +290,38 @@ main{ max-width: 720px; margin: 0 auto; }
   border-left: 5px solid var(--sage);
 }
 .day-card.rest{ border-left-color: var(--calm-blue); }
-.day-card-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.day-card.is-custom{ border-left-color: var(--clay); background: #FBF4EE; }
+.day-card-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
 .day-card-head h3{ font-size: 1rem; margin:0; }
-.day-tag{ font-family: var(--font-mono); font-size: 0.72rem; background: var(--sand); padding: 4px 9px; border-radius: 999px; color: var(--moss-soft); }
+.day-tag{ font-family: var(--font-mono); font-size: 0.72rem; background: var(--sand); padding: 4px 9px; border-radius: 999px; color: var(--moss-soft); white-space:nowrap; }
 .exercise-row{ display:flex; justify-content:space-between; font-size: 0.87rem; padding: 7px 0; border-bottom: 1px dashed var(--line); }
 .exercise-row:last-child{ border-bottom:none; }
 .exercise-name{ color: var(--moss); }
 .exercise-meta{ font-family: var(--font-mono); color: var(--sage-deep); font-weight:600; white-space:nowrap; padding-left: 10px; }
+.exercise-right{ display:flex; align-items:center; gap:8px; }
+.exercise-extra-remove{
+  flex-shrink:0; width:20px; height:20px; border-radius:50%; border:1px solid var(--line);
+  background: var(--paper); color: var(--danger); cursor:pointer; font-size:0.75rem; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+
+.day-time-badge{
+  font-family: var(--font-mono); font-size:0.76rem; color: var(--sage-deep); font-weight:700;
+  background: #EAF1E4; display:inline-block; padding:4px 10px; border-radius:999px; margin-bottom:10px;
+}
+
+.day-card-add{ margin-top: 10px; }
+.add-exercise-btn{
+  background:none; border:1.5px dashed var(--line); color: var(--sage-deep); font-weight:700; font-size:0.8rem;
+  padding: 7px 12px; border-radius: 999px; cursor:pointer; width:100%;
+}
+.add-exercise-inline{
+  margin-top:8px; display:grid; grid-template-columns: 1fr 90px auto; gap:6px; align-items:center;
+}
+.add-exercise-inline input{
+  font-family: var(--font-body); font-size:0.85rem; padding:8px 9px;
+  border-radius: var(--radius-s); border:1.5px solid var(--line); background: var(--sand); color: var(--moss);
+}
 
 .stress-grid, .pillars-grid, .supplements-grid, .sleep-grid{ display:flex; flex-direction:column; gap: 12px; }
 .mini-card{
@@ -218,6 +331,59 @@ main{ max-width: 720px; margin: 0 auto; }
 .mini-card p{ margin:0; font-size: 0.87rem; color: var(--moss-soft); }
 .mini-tag{ display:inline-block; font-family: var(--font-mono); font-size:0.68rem; background: var(--sage); color:var(--paper); padding:2px 8px; border-radius: 999px; margin-bottom: 6px; }
 .mini-tag.warn{ background: var(--clay); }
+
+/* ---------------- Checklist diario de pilares ---------------- */
+.card-title-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom: 4px; }
+.card-title-row .card-title{ margin-bottom:0; }
+.date-picker{ display:flex; align-items:center; gap:6px; font-family: var(--font-mono); font-size:0.78rem; color: var(--moss-soft); font-weight:700; }
+.date-picker input{
+  font-family: var(--font-mono); font-size: 0.85rem; padding: 6px 8px;
+  border-radius: var(--radius-s); border: 1.5px solid var(--line); background: var(--sand); color: var(--moss);
+}
+.form-hint-static{ margin-top:0; margin-bottom: 14px; color: var(--moss-soft); }
+
+.pillars-checklist{ display:flex; flex-direction:column; gap:10px; }
+.pillar-item{
+  display:flex; align-items:flex-start; gap:12px;
+  background: var(--sand); border-radius: var(--radius-m); padding: 13px 14px;
+  border: 1.5px solid transparent;
+  cursor:pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.pillar-item:hover{ border-color: var(--line); }
+.pillar-item.checked{ background: #E4ECDD; border-color: var(--sage); }
+.pillar-icon{
+  flex-shrink:0; width:38px; height:38px; border-radius:50%;
+  background: var(--paper); display:flex; align-items:center; justify-content:center;
+  color: var(--sage-deep); border: 1.5px solid var(--line);
+}
+.pillar-item.checked .pillar-icon{ background: var(--sage-deep); color: var(--paper); border-color: var(--sage-deep); }
+.pillar-icon svg{ width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.pillar-body{ flex:1; }
+.pillar-name{ font-weight:700; font-size:0.93rem; display:flex; align-items:center; gap:8px; }
+.pillar-detail{ font-size: 0.82rem; color: var(--moss-soft); margin: 3px 0 0; }
+.pillar-check{
+  flex-shrink:0; width:24px; height:24px; border-radius:7px; border:2px solid var(--line);
+  background: var(--paper); display:flex; align-items:center; justify-content:center; margin-top:2px;
+}
+.pillar-item.checked .pillar-check{ background: var(--sage-deep); border-color: var(--sage-deep); }
+.pillar-check svg{ width:14px; height:14px; stroke: var(--paper); stroke-width:3; fill:none; opacity:0; transition: opacity .1s ease; }
+.pillar-item.checked .pillar-check svg{ opacity:1; }
+
+.checklist-calendar{ display:flex; flex-direction:column; gap:14px; }
+.checklist-week{ }
+.checklist-week-label{ font-family: var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color: var(--sage-deep); font-weight:700; margin-bottom:6px; }
+.checklist-days{ display:grid; grid-template-columns: repeat(7,1fr); gap:6px; }
+.checklist-day{
+  aspect-ratio: 1; border-radius: 10px; border:1.5px solid var(--line);
+  background: var(--paper); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  cursor:pointer; gap:2px; padding:4px;
+}
+.checklist-day:hover{ border-color: var(--sage); }
+.checklist-day.is-today{ border-color: var(--calm-blue); border-width:2px; }
+.checklist-day.is-selected{ outline: 2px solid var(--moss); outline-offset:1px; }
+.checklist-day-num{ font-family: var(--font-mono); font-size: 0.68rem; color: var(--moss-soft); }
+.checklist-day-ring{ width:18px; height:18px; border-radius:50%; }
 
 /* ---------- Bottom nav ---------- */
 .bottom-nav{

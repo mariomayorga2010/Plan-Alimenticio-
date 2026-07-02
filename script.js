@@ -10,6 +10,24 @@
 
 const STORAGE_KEY = "equilibrio_mediciones_v1";
 
+// Escapa texto capturado por el usuario antes de insertarlo como HTML (recetas, ejercicios, etc.)
+function escapeHTML(str){
+  if(str === undefined || str === null) return "";
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+const WHATSAPP_ICON_SVG = `<svg viewBox="0 0 24 24"><path d="M17.5 14.4c-.3-.2-1.8-.9-2.1-1-.3-.1-.5-.2-.7.2-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.4-.5-2.6-1.6-1-.9-1.6-2-1.8-2.3-.2-.3 0-.5.1-.6.1-.1.3-.4.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.2-.6-1.5-.8-1.9-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.3 0 1.4 1 2.7 1.1 2.9.1.2 2 3.1 4.9 4.3.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 2-1.3.2-.6.2-1.2.1-1.3z"/><path d="M12 2a10 10 0 0 0-8.5 15.3L2 22l4.8-1.5A10 10 0 1 0 12 2z"/></svg>`;
+
+function shareOnWhatsApp(text){
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, "_blank", "noopener");
+}
+
 /* ---------------- Navegación entre las 4 secciones ---------------- */
 const navButtons = document.querySelectorAll(".nav-btn");
 const views = document.querySelectorAll(".view");
@@ -32,12 +50,24 @@ navButtons.forEach(btn=>{
 function loadMediciones(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    let arr = raw ? JSON.parse(raw) : [];
+    let changed = false;
+    arr = arr.map(entry=>{
+      if(!entry.id){ entry.id = "med_"+Date.now()+"_"+Math.random().toString(36).slice(2,7); changed = true; }
+      return entry;
+    });
+    if(changed) saveMediciones(arr);
+    return arr;
   }catch(e){ return []; }
 }
 function saveMediciones(arr){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
   catch(e){ console.warn("No se pudo guardar en este navegador:", e); }
+}
+function deleteMedicion(id){
+  const arr = loadMediciones().filter(m=>m.id!==id);
+  saveMediciones(arr);
+  renderProfileSummary();
 }
 
 function calcIMC(pesoKg, estaturaCm){
@@ -81,6 +111,7 @@ profileForm.addEventListener("submit", (e)=>{
   }
 
   const entry = {
+    id: "med_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),
     fecha: new Date().toISOString().slice(0,10),
     edad, sexo, estatura, peso, cintura, cadera,
     imc: Number(calcIMC(peso, estatura).toFixed(1))
@@ -114,6 +145,7 @@ function renderProfileSummary(){
     dialProgress.style.strokeDashoffset = 364;
     dialProgressInner.style.strokeDashoffset = 276;
     renderWeightChart([]);
+    renderBodySilhouette();
     return;
   }
 
@@ -121,8 +153,11 @@ function renderProfileSummary(){
   [...data].reverse().forEach(d=>{
     const row = document.createElement("div");
     row.className = "history-row";
-    row.innerHTML = `<span>${d.fecha}</span><span>${d.peso} kg · IMC ${d.imc}</span>`;
+    row.innerHTML = `<span>${d.fecha}</span><span>${d.peso} kg · IMC ${d.imc}</span><button type="button" class="history-delete-btn" data-id="${d.id}" title="Eliminar registro">✕</button>`;
     historyList.appendChild(row);
+  });
+  historyList.querySelectorAll(".history-delete-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=> deleteMedicion(btn.dataset.id));
   });
 
   const last = data[data.length-1];
@@ -148,6 +183,7 @@ function renderProfileSummary(){
   dialProgressInner.style.strokeDashoffset = circInner - (circInner * adherencePct);
 
   renderWeightChart(data);
+  renderBodySilhouette();
 }
 
 function renderWeightChart(data){
@@ -180,6 +216,75 @@ function renderWeightChart(data){
     </svg>`;
 }
 
+/* ---------------- Silueta de referencia visual según IMC ---------------- */
+// Figura abstracta y estilizada (no fotográfica) que varía de ancho según el
+// rango de IMC. Es solo una referencia visual general, no un diagnóstico.
+const IMC_BODY_WIDTH = { "Bajo peso": 0.72, "Saludable": 0.9, "Sobrepeso": 1.15, "Obesidad": 1.4 };
+
+function bodySilhouetteSVG(category){
+  const w = IMC_BODY_WIDTH[category] || 1;
+  const torsoRx = Math.round(15 * w);
+  const legW = Math.round(6 * w);
+  return `
+    <svg viewBox="0 0 80 140" width="64" height="112" aria-hidden="true">
+      <circle cx="40" cy="17" r="13" fill="var(--sage-deep)"/>
+      <ellipse cx="40" cy="66" rx="${torsoRx}" ry="40" fill="var(--sage-deep)"/>
+      <rect x="${40-legW}" y="102" width="${legW*2}" height="30" rx="7" fill="var(--sage-deep)"/>
+    </svg>`;
+}
+
+function renderBodySilhouette(){
+  const container = document.getElementById("bodySilhouette");
+  if(!container) return;
+  const data = loadMediciones();
+  if(data.length === 0){
+    container.innerHTML = `<p class="form-hint">Captura tu primera medición arriba para ver tu referencia visual.</p>`;
+    return;
+  }
+  const last = data[data.length-1];
+  const cat = imcCategoria(last.imc);
+  container.innerHTML = `
+    ${bodySilhouetteSVG(cat)}
+    <div>
+      <p class="silhouette-cat">${cat}</p>
+      <p class="silhouette-imc">IMC actual: ${last.imc}</p>
+      <p class="form-hint form-hint-static">Referencia visual general del rango de IMC en el que te encuentras — no es un diagnóstico médico.</p>
+    </div>`;
+}
+
+/* ---------------- Saludo personalizado por sección ---------------- */
+function renderGreetings(){
+  const set = (id, text) => { const el = document.getElementById(id); if(el) el.textContent = text; };
+  set("greetPerfil", `Hola ${USER_NAME} 👋 — este es tu perfil y seguimiento de peso.`);
+  set("greetAlimentacion", `Hola ${USER_NAME}, esta es tu dieta de la semana.`);
+  set("greetRutinas", `Hola ${USER_NAME}, esta es tu rutina de entrenamiento.`);
+  set("greetManejo", `Hola ${USER_NAME}, este es tu manejo de cortisol e hígado graso.`);
+}
+
+/* ---------------- Selector de mes/ciclo ---------------- */
+function pickDefaultMonthKey(){
+  const keys = Object.keys(PLANS).sort();
+  const ym = new Date().toISOString().slice(0,7); // "YYYY-MM"
+  return PLANS[ym] ? ym : keys[0];
+}
+let currentMonthKey = pickDefaultMonthKey();
+
+function renderMonthSelector(){
+  const select = document.getElementById("monthSelect");
+  const keys = Object.keys(PLANS).sort();
+  select.innerHTML = keys.map(k => `<option value="${k}" ${k===currentMonthKey?"selected":""}>${PLANS[k].label}</option>`).join("");
+  select.addEventListener("change", ()=>{
+    currentMonthKey = select.value;
+    currentNutritionDay = 0;
+    currentTrainingWeek = 0;
+    renderDayTabsNutricion();
+    renderMealPlan();
+    renderWeekTabsRutina();
+    renderTrainingPlan();
+    updateTopbarWeek();
+  });
+}
+
 /* ---------------- ALIMENTACIÓN ---------------- */
 let currentNutritionDay = 0;
 
@@ -199,28 +304,162 @@ function renderDayTabsNutricion(){
   });
 }
 
+const MEAL_TYPE_LABELS = { desayuno:"Desayuno", colacion1:"Colación (mañana)", comida:"Comida", colacion2:"Colación (tarde)", cena:"Cena" };
+const MEAL_ORDER = [
+  ["desayuno","Desayuno"],
+  ["colacion1","Colación"],
+  ["comida","Comida"],
+  ["colacion2","Colación"],
+  ["cena","Cena"]
+];
+
+/* ---------------- Recetas personalizadas: storage ---------------- */
+const STORAGE_KEY_CUSTOM_MEALS = "equilibrio_custom_meals_v1";
+function loadCustomMeals(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_MEALS)) || []; }catch(e){ return []; }
+}
+function saveCustomMeals(arr){
+  try{ localStorage.setItem(STORAGE_KEY_CUSTOM_MEALS, JSON.stringify(arr)); }catch(e){ console.warn(e); }
+}
+function addCustomMeal(meal){
+  const arr = loadCustomMeals();
+  meal.id = "meal_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+  arr.push(meal);
+  saveCustomMeals(arr);
+  return meal;
+}
+function deleteCustomMeal(id){
+  saveCustomMeals(loadCustomMeals().filter(m=>m.id!==id));
+  renderMealPlan();
+  renderCustomMealsList();
+}
+
 function renderMealPlan(){
   const container = document.getElementById("mealPlanContainer");
-  const day = MEAL_PLAN[currentNutritionDay];
-  const order = [
-    ["desayuno","Desayuno"],
-    ["colacion1","Colación"],
-    ["comida","Comida"],
-    ["colacion2","Colación"],
-    ["cena","Cena"]
-  ];
-  container.innerHTML = order.map(([key,label])=>{
-    const m = day[key];
-    return `
-      <div class="meal-card">
-        <div class="meal-card-head">
-          <span class="meal-type">${label}</span>
-          <span class="meal-kcal">${m.kcal}</span>
-        </div>
-        <p class="meal-name">${m.name}</p>
-        <p class="meal-detail">${m.detail}</p>
-      </div>`;
-  }).join("");
+  const day = PLANS[currentMonthKey].meals[currentNutritionDay];
+  const customMeals = loadCustomMeals();
+  const registry = [];
+  let html = "";
+
+  MEAL_ORDER.forEach(([key,label])=>{
+    const base = day[key];
+    if(base){
+      registry.push(base);
+      html += mealCardHTML(label, base, false, null, registry.length-1);
+    }
+    customMeals
+      .filter(m => m.month===currentMonthKey && m.day===currentNutritionDay && m.type===key)
+      .forEach(m=>{
+        registry.push(m);
+        html += mealCardHTML(label, m, true, m.id, registry.length-1);
+      });
+  });
+
+  container.innerHTML = html;
+
+  container.querySelectorAll(".meal-share-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const meal = registry[Number(btn.dataset.idx)];
+      let text = `*${meal.name}*\n\n${meal.detail}`;
+      if(meal.kcal) text += `\n\n${meal.kcal}`;
+      shareOnWhatsApp(text);
+    });
+  });
+  container.querySelectorAll(".meal-delete-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=> deleteCustomMeal(btn.dataset.id));
+  });
+}
+
+function mealCardHTML(label, meal, isCustom, id, idx){
+  return `
+    <div class="meal-card ${isCustom?"is-custom":""}">
+      <div class="meal-card-head">
+        <span class="meal-type">${label}${isCustom?'<span class="meal-type-tag">Personalizada</span>':''}</span>
+        <span class="meal-kcal">${escapeHTML(meal.kcal||"")}</span>
+      </div>
+      <p class="meal-name">${escapeHTML(meal.name)}</p>
+      <p class="meal-detail">${escapeHTML(meal.detail)}</p>
+      <div class="meal-card-actions">
+        ${isCustom?`<button type="button" class="custom-item-remove meal-delete-btn" data-id="${id}">Eliminar</button>`:""}
+        <button type="button" class="share-btn meal-share-btn" data-idx="${idx}">${WHATSAPP_ICON_SVG}WhatsApp</button>
+      </div>
+    </div>`;
+}
+
+function renderCustomMealsList(){
+  const container = document.getElementById("customMealsList");
+  if(!container) return;
+  const arr = loadCustomMeals();
+  if(arr.length === 0){ container.innerHTML = ""; return; }
+  container.innerHTML = `<p class="form-hint form-hint-static">Recetas agregadas (${arr.length}):</p>` +
+    arr.map(m=>`
+      <div class="custom-item-row">
+        <span>${escapeHTML(PLANS[m.month] ? PLANS[m.month].label : m.month)} · ${escapeHTML(DAY_NAMES[m.day])} · ${escapeHTML(MEAL_TYPE_LABELS[m.type]||m.type)} — <strong>${escapeHTML(m.name)}</strong></span>
+        <button type="button" class="custom-item-remove" data-id="${m.id}">Eliminar</button>
+      </div>`).join("");
+  container.querySelectorAll(".custom-item-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=> deleteCustomMeal(btn.dataset.id));
+  });
+}
+
+/* ---------------- Formulario "Agregar receta nueva" ---------------- */
+function populateMealFormSelects(){
+  const monthSel = document.getElementById("mfMonth");
+  const daySel = document.getElementById("mfDay");
+  if(!monthSel || !daySel) return;
+  monthSel.innerHTML = Object.keys(PLANS).sort().map(k=>`<option value="${k}">${escapeHTML(PLANS[k].label)}</option>`).join("");
+  monthSel.value = currentMonthKey;
+  daySel.innerHTML = DAY_NAMES.map((n,i)=>`<option value="${i}">${n}</option>`).join("");
+}
+
+function setupMealForm(){
+  const form = document.getElementById("mealForm");
+  if(!form) return;
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const month = document.getElementById("mfMonth").value;
+    const day = Number(document.getElementById("mfDay").value);
+    const type = document.getElementById("mfType").value;
+    const name = document.getElementById("mfName").value.trim();
+    const detail = document.getElementById("mfDetail").value.trim();
+    const kcal = document.getElementById("mfKcal").value.trim();
+    const hint = document.getElementById("mealFormHint");
+    if(!name || !detail){ hint.textContent = "Completa al menos nombre y receta."; return; }
+    addCustomMeal({ month, day, type, name, detail, kcal });
+    hint.textContent = "Receta guardada ✓";
+    form.reset();
+    populateMealFormSelects();
+    if(month===currentMonthKey && day===currentNutritionDay) renderMealPlan();
+    renderCustomMealsList();
+  });
+
+  document.getElementById("mealJsonImportBtn").addEventListener("click", ()=>{
+    const hint = document.getElementById("mealJsonHint");
+    const input = document.getElementById("mealJsonInput");
+    const raw = input.value.trim();
+    if(!raw){ hint.textContent = "Pega un JSON primero."; return; }
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(err){ hint.textContent = "JSON inválido: " + err.message; return; }
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    let count = 0;
+    const errors = [];
+    items.forEach((it,i)=>{
+      if(!it.name || !it.detail || !it.type || (it.day===undefined || it.day===null || it.day==="")){
+        errors.push(`#${i+1}: faltan campos (name, detail, type, day)`);
+        return;
+      }
+      const dayIndex = typeof it.day === "number" ? it.day : DAY_NAMES.findIndex(d=>d.toLowerCase()===String(it.day).toLowerCase());
+      if(dayIndex === -1){ errors.push(`#${i+1}: día "${it.day}" no reconocido`); return; }
+      const month = it.month && PLANS[it.month] ? it.month : currentMonthKey;
+      addCustomMeal({ month, day: dayIndex, type: it.type, name: it.name, detail: it.detail, kcal: it.kcal || "" });
+      count++;
+    });
+    hint.textContent = `${count} receta(s) importada(s).` + (errors.length ? ` Con errores: ${errors.join(" | ")}` : "");
+    input.value = "";
+    renderMealPlan();
+    renderCustomMealsList();
+  });
 }
 
 function renderPantry(){
@@ -239,7 +478,8 @@ let currentTrainingWeek = 0;
 function renderWeekTabsRutina(){
   const wrap = document.getElementById("weekTabsRutina");
   wrap.innerHTML = "";
-  TRAINING_WEEKS.forEach((w,i)=>{
+  const weeks = PLANS[currentMonthKey].training;
+  weeks.forEach((w,i)=>{
     const btn = document.createElement("button");
     btn.className = "tab-btn" + (i===currentTrainingWeek ? " tab-active" : "");
     btn.textContent = `Semana ${i+1}`;
@@ -252,24 +492,268 @@ function renderWeekTabsRutina(){
   });
 }
 
+/* ---------------- Estimador de tiempo por ejercicio/día ---------------- */
+// Heurística aproximada a partir del texto libre en "meta" (ej. "3x12", "4x2 min", "30 seg").
+function estimateExerciseMinutes(meta){
+  if(!meta) return 5;
+  const m = String(meta).toLowerCase();
+
+  const minMatch = m.match(/(\d+)(?:-(\d+))?\s*min/);
+  if(minMatch){
+    const a = parseFloat(minMatch[1]);
+    const b = minMatch[2] ? parseFloat(minMatch[2]) : a;
+    const avgMin = (a+b)/2;
+    const setsMatch = m.match(/^(\d+)\s*[x×]/);
+    return setsMatch ? Math.round(parseFloat(setsMatch[1]) * avgMin) : Math.round(avgMin);
+  }
+  const segMatch = m.match(/(\d+)\s*seg/);
+  if(segMatch){
+    const sec = parseFloat(segMatch[1]);
+    const setsMatch = m.match(/^(\d+)\s*[x×]/);
+    const sets = setsMatch ? parseFloat(setsMatch[1]) : 1;
+    const totalSec = sets * (sec + 45); // + descanso aproximado entre series
+    return Math.max(1, Math.round(totalSec/60));
+  }
+  const setsRepsMatch = m.match(/(\d+)\s*[x×]\s*(\d+)/);
+  if(setsRepsMatch){
+    const sets = parseFloat(setsRepsMatch[1]);
+    const totalSec = sets*45 + Math.max(0, sets-1)*60; // ~45s trabajo + 60s descanso por serie
+    return Math.max(1, Math.round(totalSec/60));
+  }
+  return 5; // valor genérico si no se pudo interpretar el texto
+}
+function estimateDayMinutes(exercises){
+  return (exercises||[]).reduce((sum,ex)=> sum + estimateExerciseMinutes(ex.meta), 0);
+}
+
+/* ---------------- Entrenamientos personalizados: storage ---------------- */
+const STORAGE_KEY_CUSTOM_TRAINING = "equilibrio_custom_training_v1";
+function loadCustomTraining(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_TRAINING)) || []; }catch(e){ return []; }
+}
+function saveCustomTraining(arr){
+  try{ localStorage.setItem(STORAGE_KEY_CUSTOM_TRAINING, JSON.stringify(arr)); }catch(e){ console.warn(e); }
+}
+function addCustomTraining(t){
+  const arr = loadCustomTraining();
+  t.id = "train_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+  arr.push(t);
+  saveCustomTraining(arr);
+  return t;
+}
+function deleteCustomTraining(id){
+  saveCustomTraining(loadCustomTraining().filter(t=>t.id!==id));
+  renderTrainingPlan();
+  renderCustomTrainingList();
+}
+
+/* ---------------- Ejercicios extra agregados a un día ya existente ---------------- */
+const STORAGE_KEY_EXTRA_EX = "equilibrio_extra_exercises_v1";
+function loadExtraExercises(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY_EXTRA_EX)) || []; }catch(e){ return []; }
+}
+function saveExtraExercises(arr){
+  try{ localStorage.setItem(STORAGE_KEY_EXTRA_EX, JSON.stringify(arr)); }catch(e){ console.warn(e); }
+}
+function addExtraExercise(ex){
+  const arr = loadExtraExercises();
+  ex.id = "exex_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+  arr.push(ex);
+  saveExtraExercises(arr);
+}
+function deleteExtraExercise(id){
+  saveExtraExercises(loadExtraExercises().filter(e=>e.id!==id));
+}
+
 function renderTrainingPlan(){
   const container = document.getElementById("trainingPlanContainer");
-  const week = TRAINING_WEEKS[currentTrainingWeek];
+  const week = PLANS[currentMonthKey].training[currentTrainingWeek];
+  const customDays = loadCustomTraining().filter(t=>t.month===currentMonthKey && t.week===currentTrainingWeek);
+  const registry = [];
   let html = `<div class="callout">${week.note}</div>`;
-  html += week.days.map(d=>`
-    <div class="day-card ${d.rest ? "rest":""}">
-      <div class="day-card-head">
-        <h3>${d.day} · ${d.title}</h3>
-        <span class="day-tag">${d.tag}</span>
-      </div>
-      ${d.exercises.map(ex=>`
-        <div class="exercise-row">
-          <span class="exercise-name">${ex.name}</span>
-          <span class="exercise-meta">${ex.meta}</span>
-        </div>`).join("") || `<p class="meal-detail">Descanso total: prioriza sueño e hidratación.</p>`}
-    </div>
-  `).join("");
+
+  week.days.forEach(d=>{ registry.push(d); html += dayCardHTML(d, false, registry.length-1); });
+  customDays.forEach(d=>{ registry.push(d); html += dayCardHTML(d, true, registry.length-1); });
+
   container.innerHTML = html;
+
+  container.querySelectorAll(".training-share-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const d = registry[Number(btn.dataset.idx)];
+      const extraEx = loadExtraExercises().filter(e=> e.month===currentMonthKey && e.week===currentTrainingWeek && e.day===d.day);
+      const allEx = (d.exercises||[]).concat(extraEx);
+      let text = `*${d.title}*\n${d.day} — ${d.tag}\n\n`;
+      text += allEx.length ? allEx.map(ex=>`• ${ex.name} — ${ex.meta}`).join("\n") : "Descanso total.";
+      shareOnWhatsApp(text);
+    });
+  });
+  container.querySelectorAll(".training-delete-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=> deleteCustomTraining(btn.dataset.id));
+  });
+  container.querySelectorAll(".add-exercise-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const target = document.getElementById(btn.dataset.target);
+      if(target) target.hidden = !target.hidden;
+    });
+  });
+  container.querySelectorAll(".add-ex-save").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const wrap = btn.closest(".add-exercise-inline");
+      const dayName = wrap.dataset.day;
+      const nameInput = wrap.querySelector(".add-ex-name");
+      const metaInput = wrap.querySelector(".add-ex-meta");
+      const name = nameInput.value.trim();
+      const meta = metaInput.value.trim();
+      if(!name){ nameInput.focus(); return; }
+      addExtraExercise({ month: currentMonthKey, week: currentTrainingWeek, day: dayName, name, meta });
+      renderTrainingPlan();
+    });
+  });
+  container.querySelectorAll(".exercise-extra-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      deleteExtraExercise(btn.dataset.id);
+      renderTrainingPlan();
+    });
+  });
+}
+
+function dayCardHTML(d, isCustom, idx){
+  const extraEx = loadExtraExercises().filter(e=> e.month===currentMonthKey && e.week===currentTrainingWeek && e.day===d.day);
+  const baseEx = (d.exercises||[]).map(ex=>({ ...ex, extra:false }));
+  const allEx = baseEx.concat(extraEx.map(ex=>({ ...ex, extra:true })));
+  const totalMin = estimateDayMinutes(allEx);
+  const dayKey = `${currentMonthKey}_w${currentTrainingWeek}_${idx}`;
+
+  return `
+    <div class="day-card ${d.rest?"rest":""} ${isCustom?"is-custom":""}">
+      <div class="day-card-head">
+        <h3>${escapeHTML(d.day)} · ${escapeHTML(d.title)}${isCustom?' <span class="meal-type-tag">Personalizada</span>':''}</h3>
+        <span class="day-tag">${escapeHTML(d.tag)}</span>
+      </div>
+      ${!d.rest && totalMin>0 ? `<div class="day-time-badge">⏱ ~${totalMin} min estimados en total</div>` : ""}
+      ${allEx.length ? allEx.map(ex=>`
+        <div class="exercise-row">
+          <span class="exercise-name">${escapeHTML(ex.name)}</span>
+          <span class="exercise-right">
+            <span class="exercise-meta">${escapeHTML(ex.meta)}</span>
+            ${ex.extra ? `<button type="button" class="exercise-extra-remove" data-id="${ex.id}" title="Quitar">×</button>` : ""}
+          </span>
+        </div>`).join("") : `<p class="meal-detail">Descanso total: prioriza sueño e hidratación.</p>`}
+
+      <div class="day-card-add">
+        <button type="button" class="add-exercise-btn" data-target="addEx-${dayKey}">+ Agregar actividad a este día</button>
+        <div class="add-exercise-inline" id="addEx-${dayKey}" data-day="${escapeHTML(d.day)}" hidden>
+          <input type="text" class="add-ex-name" placeholder="Tipo de ejercicio">
+          <input type="text" class="add-ex-meta" placeholder="Reps (3x12)">
+          <button type="button" class="btn btn-primary btn-small add-ex-save">Agregar</button>
+        </div>
+      </div>
+
+      <div class="day-card-share">
+        ${isCustom?`<button type="button" class="custom-item-remove training-delete-btn" data-id="${d.id}">Eliminar sesión</button>`:""}
+        <button type="button" class="share-btn training-share-btn" data-idx="${idx}">${WHATSAPP_ICON_SVG}WhatsApp</button>
+      </div>
+    </div>`;
+}
+
+function renderCustomTrainingList(){
+  const container = document.getElementById("customTrainingList");
+  if(!container) return;
+  const arr = loadCustomTraining();
+  if(arr.length === 0){ container.innerHTML = ""; return; }
+  container.innerHTML = `<p class="form-hint form-hint-static">Entrenamientos agregados (${arr.length}):</p>` +
+    arr.map(t=>`
+      <div class="custom-item-row">
+        <span>${escapeHTML(PLANS[t.month] ? PLANS[t.month].label : t.month)} · Semana ${t.week+1} · ${escapeHTML(t.day)} — <strong>${escapeHTML(t.title)}</strong></span>
+        <button type="button" class="custom-item-remove" data-id="${t.id}">Eliminar</button>
+      </div>`).join("");
+  container.querySelectorAll(".custom-item-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=> deleteCustomTraining(btn.dataset.id));
+  });
+}
+
+/* ---------------- Formulario "Agregar entrenamiento nuevo" ---------------- */
+function populateTrainingFormSelects(){
+  const monthSel = document.getElementById("tfMonth");
+  const daySel = document.getElementById("tfDay");
+  if(!monthSel || !daySel) return;
+  monthSel.innerHTML = Object.keys(PLANS).sort().map(k=>`<option value="${k}">${escapeHTML(PLANS[k].label)}</option>`).join("");
+  monthSel.value = currentMonthKey;
+  daySel.innerHTML = DAY_NAMES.map(n=>`<option value="${n}">${n}</option>`).join("");
+}
+
+function addExerciseFormRow(name="", meta=""){
+  const wrap = document.getElementById("exerciseFormList");
+  if(!wrap) return;
+  const row = document.createElement("div");
+  row.className = "exercise-form-row";
+  row.innerHTML = `
+    <input type="text" class="ex-name" placeholder="Ejercicio (ej. Sentadilla goblet)" value="${escapeHTML(name)}">
+    <input type="text" class="ex-meta" placeholder="3x12" value="${escapeHTML(meta)}">
+    <button type="button" class="exercise-remove-btn" title="Quitar">×</button>`;
+  row.querySelector(".exercise-remove-btn").addEventListener("click", ()=> row.remove());
+  wrap.appendChild(row);
+}
+
+function setupTrainingForm(){
+  const form = document.getElementById("trainingForm");
+  if(!form) return;
+
+  document.getElementById("addExerciseRowBtn").addEventListener("click", ()=> addExerciseFormRow());
+
+  form.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const month = document.getElementById("tfMonth").value;
+    const week = Number(document.getElementById("tfWeek").value);
+    const day = document.getElementById("tfDay").value;
+    const title = document.getElementById("tfTitle").value.trim();
+    const tag = document.getElementById("tfTag").value;
+    const hint = document.getElementById("trainingFormHint");
+    const exercises = Array.from(document.querySelectorAll("#exerciseFormList .exercise-form-row")).map(row=>({
+      name: row.querySelector(".ex-name").value.trim(),
+      meta: row.querySelector(".ex-meta").value.trim()
+    })).filter(ex=>ex.name);
+
+    if(!title || exercises.length===0){ hint.textContent = "Agrega un título y al menos un ejercicio con nombre."; return; }
+    addCustomTraining({ month, week, day, title, tag, exercises });
+    hint.textContent = "Entrenamiento guardado ✓";
+    form.reset();
+    document.getElementById("exerciseFormList").innerHTML = "";
+    addExerciseFormRow(); addExerciseFormRow();
+    populateTrainingFormSelects();
+    if(month===currentMonthKey && week===currentTrainingWeek) renderTrainingPlan();
+    renderCustomTrainingList();
+  });
+
+  document.getElementById("trainingJsonImportBtn").addEventListener("click", ()=>{
+    const hint = document.getElementById("trainingJsonHint");
+    const input = document.getElementById("trainingJsonInput");
+    const raw = input.value.trim();
+    if(!raw){ hint.textContent = "Pega un JSON primero."; return; }
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(err){ hint.textContent = "JSON inválido: " + err.message; return; }
+    const items = Array.isArray(parsed) ? parsed : [parsed];
+    let count = 0;
+    const errors = [];
+    items.forEach((it,i)=>{
+      if(!it.title || !it.day || !Array.isArray(it.exercises) || it.exercises.length===0){
+        errors.push(`#${i+1}: faltan campos (title, day, exercises[])`);
+        return;
+      }
+      const month = it.month && PLANS[it.month] ? it.month : currentMonthKey;
+      const week = (typeof it.week === "number" && it.week>=0 && it.week<=3) ? it.week : 0;
+      addCustomTraining({
+        month, week, day: it.day, title: it.title, tag: it.tag || "Funcional",
+        exercises: it.exercises.map(ex=>({ name: ex.name||"", meta: ex.meta||"" }))
+      });
+      count++;
+    });
+    hint.textContent = `${count} entrenamiento(s) importado(s).` + (errors.length ? ` Con errores: ${errors.join(" | ")}` : "");
+    input.value = "";
+    renderTrainingPlan();
+    renderCustomTrainingList();
+  });
 }
 
 function renderStress(){
@@ -283,11 +767,132 @@ function renderStress(){
   `).join("");
 }
 
-/* ---------------- CORTISOL / HÍGADO ---------------- */
-function renderPillars(){
-  document.getElementById("pillarsList").innerHTML = PILLARS.map(p=>`
-    <div class="mini-card"><h4>${p.name}</h4><p>${p.detail}</p></div>
-  `).join("");
+/* ---------------- CORTISOL / HÍGADO — checklist diario de pilares ---------------- */
+const STORAGE_KEY_CHECKLIST = "equilibrio_checklist_v1";
+const STORAGE_KEY_CHECKLIST_START = "equilibrio_checklist_start_v1";
+
+function loadChecklistData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY_CHECKLIST);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveChecklistData(obj){
+  try{ localStorage.setItem(STORAGE_KEY_CHECKLIST, JSON.stringify(obj)); }
+  catch(e){ console.warn("No se pudo guardar el checklist:", e); }
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+// Fecha de inicio del seguimiento de 4 semanas: el lunes de la semana en que se usa por primera vez.
+function getChecklistStartDate(){
+  let start = localStorage.getItem(STORAGE_KEY_CHECKLIST_START);
+  if(!start){
+    const d = new Date();
+    const day = d.getDay(); // 0=domingo .. 6=sábado
+    const diffToMonday = (day === 0 ? -6 : 1 - day);
+    d.setDate(d.getDate() + diffToMonday);
+    start = d.toISOString().slice(0,10);
+    localStorage.setItem(STORAGE_KEY_CHECKLIST_START, start);
+  }
+  return start;
+}
+
+let selectedChecklistDate = todayISO();
+
+function renderPillarsChecklist(){
+  const container = document.getElementById("pillarsChecklist");
+  const data = loadChecklistData();
+  const dayData = data[selectedChecklistDate] || {};
+
+  container.innerHTML = PILLARS.map(p=>{
+    const checked = !!dayData[p.id];
+    return `
+      <div class="pillar-item ${checked ? "checked":""}" data-pillar="${p.id}" role="checkbox" aria-checked="${checked}" tabindex="0">
+        <span class="pillar-icon"><svg viewBox="0 0 24 24">${p.icon}</svg></span>
+        <span class="pillar-body">
+          <span class="pillar-name">${p.name}</span>
+          <p class="pillar-detail">${p.detail}</p>
+        </span>
+        <span class="pillar-check"><svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg></span>
+      </div>`;
+  }).join("");
+
+  container.querySelectorAll(".pillar-item").forEach(el=>{
+    const toggle = ()=>{
+      const id = el.dataset.pillar;
+      const data2 = loadChecklistData();
+      const dayObj = data2[selectedChecklistDate] || {};
+      dayObj[id] = !dayObj[id];
+      data2[selectedChecklistDate] = dayObj;
+      saveChecklistData(data2);
+      renderPillarsChecklist();
+      renderChecklistCalendar();
+    };
+    el.addEventListener("click", toggle);
+    el.addEventListener("keydown", (e)=>{ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+  });
+
+  updateChecklistDayHint();
+}
+
+function updateChecklistDayHint(){
+  const hint = document.getElementById("checklistDayHint");
+  const data = loadChecklistData();
+  const dayObj = data[selectedChecklistDate] || {};
+  const done = PILLARS.filter(p=>dayObj[p.id]).length;
+  const niceDate = new Date(selectedChecklistDate + "T00:00:00").toLocaleDateString("es-MX", { weekday:"long", day:"numeric", month:"long" });
+  hint.textContent = `${niceDate} — ${done} de ${PILLARS.length} pilares cumplidos.`;
+}
+
+function renderChecklistCalendar(){
+  const container = document.getElementById("checklistCalendar");
+  const data = loadChecklistData();
+  const start = new Date(getChecklistStartDate() + "T00:00:00");
+  const today = todayISO();
+
+  let html = "";
+  for(let week=0; week<4; week++){
+    html += `<div class="checklist-week"><div class="checklist-week-label">Semana ${week+1}</div><div class="checklist-days">`;
+    for(let d=0; d<7; d++){
+      const cellDate = new Date(start);
+      cellDate.setDate(start.getDate() + week*7 + d);
+      const iso = cellDate.toISOString().slice(0,10);
+      const dayObj = data[iso] || {};
+      const done = PILLARS.filter(p=>dayObj[p.id]).length;
+      const ratio = done / PILLARS.length;
+      const isToday = iso === today;
+      const isSelected = iso === selectedChecklistDate;
+      const deg = Math.round(ratio*360);
+      html += `
+        <button type="button" class="checklist-day ${isToday?"is-today":""} ${isSelected?"is-selected":""}" data-date="${iso}" title="${iso} — ${done}/${PILLARS.length}">
+          <span class="checklist-day-ring" style="background: conic-gradient(var(--sage-deep) ${deg}deg, var(--line) ${deg}deg)"></span>
+          <span class="checklist-day-num">${cellDate.getDate()}</span>
+        </button>`;
+    }
+    html += `</div></div>`;
+  }
+  container.innerHTML = html;
+
+  container.querySelectorAll(".checklist-day").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      selectedChecklistDate = btn.dataset.date;
+      document.getElementById("checklistDate").value = selectedChecklistDate;
+      renderPillarsChecklist();
+      renderChecklistCalendar();
+    });
+  });
+}
+
+function initChecklistDatePicker(){
+  const input = document.getElementById("checklistDate");
+  input.value = selectedChecklistDate;
+  input.max = todayISO();
+  input.addEventListener("change", ()=>{
+    if(!input.value) return;
+    selectedChecklistDate = input.value;
+    renderPillarsChecklist();
+    renderChecklistCalendar();
+  });
 }
 function renderSupplements(){
   document.getElementById("supplementsList").innerHTML = SUPPLEMENTS.map(s=>`
@@ -307,19 +912,44 @@ function updateTopbarWeek(){
   document.getElementById("topbarWeek").textContent = `Semana ${currentTrainingWeek+1} de 4`;
 }
 
+function setupToggle(btnId, wrapId){
+  const btn = document.getElementById(btnId);
+  const wrap = document.getElementById(wrapId);
+  if(!btn || !wrap) return;
+  btn.addEventListener("click", ()=>{
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", String(!expanded));
+    wrap.hidden = expanded;
+  });
+}
+
 /* ---------------- INIT ---------------- */
 function init(){
+  renderGreetings();
   renderProfileSummary();
 
+  renderMonthSelector();
   renderDayTabsNutricion();
   renderMealPlan();
   renderPantry();
+  populateMealFormSelects();
+  setupMealForm();
+  setupToggle("toggleMealForm","mealFormWrap");
+  renderCustomMealsList();
 
   renderWeekTabsRutina();
   renderTrainingPlan();
   renderStress();
+  populateTrainingFormSelects();
+  addExerciseFormRow();
+  addExerciseFormRow();
+  setupTrainingForm();
+  setupToggle("toggleTrainingForm","trainingFormWrap");
+  renderCustomTrainingList();
 
-  renderPillars();
+  initChecklistDatePicker();
+  renderPillarsChecklist();
+  renderChecklistCalendar();
   renderSupplements();
   renderSleep();
 
