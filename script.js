@@ -218,7 +218,8 @@ function renderWeightChart(data){
 
 /* ---------------- Silueta de referencia visual según IMC ---------------- */
 // Figura abstracta y estilizada (no fotográfica) que varía de ancho según el
-// rango de IMC. Es solo una referencia visual general, no un diagnóstico.
+// rango de IMC. Vive junto a "Progreso de peso" / "Adherencia semanal" en el
+// dial, por eso usa un tono claro (var(--sand)) para verse sobre el fondo oscuro.
 const IMC_BODY_WIDTH = { "Bajo peso": 0.72, "Saludable": 0.9, "Sobrepeso": 1.15, "Obesidad": 1.4 };
 
 function bodySilhouetteSVG(category){
@@ -226,10 +227,10 @@ function bodySilhouetteSVG(category){
   const torsoRx = Math.round(15 * w);
   const legW = Math.round(6 * w);
   return `
-    <svg viewBox="0 0 80 140" width="64" height="112" aria-hidden="true">
-      <circle cx="40" cy="17" r="13" fill="var(--sage-deep)"/>
-      <ellipse cx="40" cy="66" rx="${torsoRx}" ry="40" fill="var(--sage-deep)"/>
-      <rect x="${40-legW}" y="102" width="${legW*2}" height="30" rx="7" fill="var(--sage-deep)"/>
+    <svg viewBox="0 0 80 140" aria-hidden="true">
+      <circle cx="40" cy="17" r="13" fill="var(--sand)"/>
+      <ellipse cx="40" cy="66" rx="${torsoRx}" ry="40" fill="var(--sand)"/>
+      <rect x="${40-legW}" y="102" width="${legW*2}" height="30" rx="7" fill="var(--sand)"/>
     </svg>`;
 }
 
@@ -238,18 +239,12 @@ function renderBodySilhouette(){
   if(!container) return;
   const data = loadMediciones();
   if(data.length === 0){
-    container.innerHTML = `<p class="form-hint">Captura tu primera medición arriba para ver tu referencia visual.</p>`;
+    container.innerHTML = `<span class="legend-silhouette-icon">${bodySilhouetteSVG("Saludable")}</span> Referencia: sin datos aún`;
     return;
   }
   const last = data[data.length-1];
   const cat = imcCategoria(last.imc);
-  container.innerHTML = `
-    ${bodySilhouetteSVG(cat)}
-    <div>
-      <p class="silhouette-cat">${cat}</p>
-      <p class="silhouette-imc">IMC actual: ${last.imc}</p>
-      <p class="form-hint form-hint-static">Referencia visual general del rango de IMC en el que te encuentras — no es un diagnóstico médico.</p>
-    </div>`;
+  container.innerHTML = `<span class="legend-silhouette-icon">${bodySilhouetteSVG(cat)}</span> Referencia: ${cat}`;
 }
 
 /* ---------------- Saludo personalizado por sección ---------------- */
@@ -259,6 +254,7 @@ function renderGreetings(){
   set("greetAlimentacion", `Hola ${USER_NAME}, esta es tu dieta de la semana.`);
   set("greetRutinas", `Hola ${USER_NAME}, esta es tu rutina de entrenamiento.`);
   set("greetManejo", `Hola ${USER_NAME}, este es tu manejo de cortisol e hígado graso.`);
+  set("greetConfiguracion", `Hola ${USER_NAME}, aquí administras el contenido de tu plan.`);
 }
 
 /* ---------------- Selector de mes/ciclo ---------------- */
@@ -413,52 +409,34 @@ function populateMealFormSelects(){
 }
 
 function setupMealForm(){
-  const form = document.getElementById("mealForm");
-  if(!form) return;
-  form.addEventListener("submit", (e)=>{
-    e.preventDefault();
-    const month = document.getElementById("mfMonth").value;
-    const day = Number(document.getElementById("mfDay").value);
-    const type = document.getElementById("mfType").value;
-    const name = document.getElementById("mfName").value.trim();
-    const detail = document.getElementById("mfDetail").value.trim();
-    const kcal = document.getElementById("mfKcal").value.trim();
-    const hint = document.getElementById("mealFormHint");
-    if(!name || !detail){ hint.textContent = "Completa al menos nombre y receta."; return; }
-    addCustomMeal({ month, day, type, name, detail, kcal });
-    hint.textContent = "Receta guardada ✓";
-    form.reset();
-    populateMealFormSelects();
-    if(month===currentMonthKey && day===currentNutritionDay) renderMealPlan();
-    renderCustomMealsList();
-  });
-
-  document.getElementById("mealJsonImportBtn").addEventListener("click", ()=>{
-    const hint = document.getElementById("mealJsonHint");
-    const input = document.getElementById("mealJsonInput");
-    const raw = input.value.trim();
-    if(!raw){ hint.textContent = "Pega un JSON primero."; return; }
-    let parsed;
-    try{ parsed = JSON.parse(raw); }
-    catch(err){ hint.textContent = "JSON inválido: " + err.message; return; }
-    const items = Array.isArray(parsed) ? parsed : [parsed];
-    let count = 0;
-    const errors = [];
-    items.forEach((it,i)=>{
+  wireConfigCategory({
+    formId: "mealForm",
+    jsonInputId: "mealJsonInput",
+    jsonImportBtnId: "mealJsonImportBtn",
+    jsonHintId: "mealJsonHint",
+    formHintId: "mealFormHint",
+    buildFromForm: ()=>{
+      const month = document.getElementById("mfMonth").value;
+      const day = Number(document.getElementById("mfDay").value);
+      const type = document.getElementById("mfType").value;
+      const name = document.getElementById("mfName").value.trim();
+      const detail = document.getElementById("mfDetail").value.trim();
+      const kcal = document.getElementById("mfKcal").value.trim();
+      if(!name || !detail) return { ok:false, error:"Completa al menos nombre y receta." };
+      return { ok:true, item:{ month, day, type, name, detail, kcal } };
+    },
+    normalizeJsonItem: (it)=>{
       if(!it.name || !it.detail || !it.type || (it.day===undefined || it.day===null || it.day==="")){
-        errors.push(`#${i+1}: faltan campos (name, detail, type, day)`);
-        return;
+        return { ok:false, error:"faltan campos (name, detail, type, day)" };
       }
       const dayIndex = typeof it.day === "number" ? it.day : DAY_NAMES.findIndex(d=>d.toLowerCase()===String(it.day).toLowerCase());
-      if(dayIndex === -1){ errors.push(`#${i+1}: día "${it.day}" no reconocido`); return; }
+      if(dayIndex === -1) return { ok:false, error:`día "${it.day}" no reconocido` };
       const month = it.month && PLANS[it.month] ? it.month : currentMonthKey;
-      addCustomMeal({ month, day: dayIndex, type: it.type, name: it.name, detail: it.detail, kcal: it.kcal || "" });
-      count++;
-    });
-    hint.textContent = `${count} receta(s) importada(s).` + (errors.length ? ` Con errores: ${errors.join(" | ")}` : "");
-    input.value = "";
-    renderMealPlan();
-    renderCustomMealsList();
+      return { ok:true, item:{ month, day:dayIndex, type:it.type, name:it.name, detail:it.detail, kcal: it.kcal||"" } };
+    },
+    addFn: addCustomMeal,
+    afterReset: populateMealFormSelects,
+    afterChangeFn: ()=>{ renderMealPlan(); renderCustomMealsList(); }
   });
 }
 
@@ -696,73 +674,55 @@ function addExerciseFormRow(name="", meta=""){
 }
 
 function setupTrainingForm(){
-  const form = document.getElementById("trainingForm");
-  if(!form) return;
+  const addBtn = document.getElementById("addExerciseRowBtn");
+  if(addBtn) addBtn.addEventListener("click", ()=> addExerciseFormRow());
 
-  document.getElementById("addExerciseRowBtn").addEventListener("click", ()=> addExerciseFormRow());
-
-  form.addEventListener("submit", (e)=>{
-    e.preventDefault();
-    const month = document.getElementById("tfMonth").value;
-    const week = Number(document.getElementById("tfWeek").value);
-    const day = document.getElementById("tfDay").value;
-    const title = document.getElementById("tfTitle").value.trim();
-    const tag = document.getElementById("tfTag").value;
-    const hint = document.getElementById("trainingFormHint");
-    const exercises = Array.from(document.querySelectorAll("#exerciseFormList .exercise-form-row")).map(row=>({
-      name: row.querySelector(".ex-name").value.trim(),
-      meta: row.querySelector(".ex-meta").value.trim()
-    })).filter(ex=>ex.name);
-
-    if(!title || exercises.length===0){ hint.textContent = "Agrega un título y al menos un ejercicio con nombre."; return; }
-    addCustomTraining({ month, week, day, title, tag, exercises });
-    hint.textContent = "Entrenamiento guardado ✓";
-    form.reset();
-    document.getElementById("exerciseFormList").innerHTML = "";
-    addExerciseFormRow(); addExerciseFormRow();
-    populateTrainingFormSelects();
-    if(month===currentMonthKey && week===currentTrainingWeek) renderTrainingPlan();
-    renderCustomTrainingList();
-  });
-
-  document.getElementById("trainingJsonImportBtn").addEventListener("click", ()=>{
-    const hint = document.getElementById("trainingJsonHint");
-    const input = document.getElementById("trainingJsonInput");
-    const raw = input.value.trim();
-    if(!raw){ hint.textContent = "Pega un JSON primero."; return; }
-    let parsed;
-    try{ parsed = JSON.parse(raw); }
-    catch(err){ hint.textContent = "JSON inválido: " + err.message; return; }
-    const items = Array.isArray(parsed) ? parsed : [parsed];
-    let count = 0;
-    const errors = [];
-    items.forEach((it,i)=>{
+  wireConfigCategory({
+    formId: "trainingForm",
+    jsonInputId: "trainingJsonInput",
+    jsonImportBtnId: "trainingJsonImportBtn",
+    jsonHintId: "trainingJsonHint",
+    formHintId: "trainingFormHint",
+    buildFromForm: ()=>{
+      const month = document.getElementById("tfMonth").value;
+      const week = Number(document.getElementById("tfWeek").value);
+      const day = document.getElementById("tfDay").value;
+      const title = document.getElementById("tfTitle").value.trim();
+      const tag = document.getElementById("tfTag").value;
+      const exercises = Array.from(document.querySelectorAll("#exerciseFormList .exercise-form-row")).map(row=>({
+        name: row.querySelector(".ex-name").value.trim(),
+        meta: row.querySelector(".ex-meta").value.trim()
+      })).filter(ex=>ex.name);
+      if(!title || exercises.length===0) return { ok:false, error:"Agrega un título y al menos un ejercicio con nombre." };
+      return { ok:true, item:{ month, week, day, title, tag, exercises } };
+    },
+    normalizeJsonItem: (it)=>{
       if(!it.title || !it.day || !Array.isArray(it.exercises) || it.exercises.length===0){
-        errors.push(`#${i+1}: faltan campos (title, day, exercises[])`);
-        return;
+        return { ok:false, error:"faltan campos (title, day, exercises[])" };
       }
       const month = it.month && PLANS[it.month] ? it.month : currentMonthKey;
       const week = (typeof it.week === "number" && it.week>=0 && it.week<=3) ? it.week : 0;
-      addCustomTraining({
-        month, week, day: it.day, title: it.title, tag: it.tag || "Funcional",
-        exercises: it.exercises.map(ex=>({ name: ex.name||"", meta: ex.meta||"" }))
-      });
-      count++;
-    });
-    hint.textContent = `${count} entrenamiento(s) importado(s).` + (errors.length ? ` Con errores: ${errors.join(" | ")}` : "");
-    input.value = "";
-    renderTrainingPlan();
-    renderCustomTrainingList();
+      return { ok:true, item:{ month, week, day: it.day, title: it.title, tag: it.tag || "Funcional", exercises: it.exercises.map(ex=>({ name: ex.name||"", meta: ex.meta||"" })) } };
+    },
+    addFn: addCustomTraining,
+    afterReset: ()=>{
+      document.getElementById("exerciseFormList").innerHTML = "";
+      addExerciseFormRow(); addExerciseFormRow();
+      populateTrainingFormSelects();
+    },
+    afterChangeFn: ()=>{ renderTrainingPlan(); renderCustomTrainingList(); }
   });
 }
 
 function renderStress(){
   const container = document.getElementById("stressTechniques");
-  container.innerHTML = STRESS_TECHNIQUES.map(s=>`
-    <div class="mini-card">
-      <span class="mini-tag">${s.tag}</span>
-      <h4>${s.name}</h4>
-      <p>${s.detail}</p>
+  const custom = loadCustomStress();
+  const all = STRESS_TECHNIQUES.concat(custom.map(c=>({ ...c, custom:true })));
+  container.innerHTML = all.map(s=>`
+    <div class="mini-card ${s.custom?"is-custom":""}">
+      <span class="mini-tag">${escapeHTML(s.tag)}</span>
+      <h4>${escapeHTML(s.name)}${s.custom?' <span class="meal-type-tag">Personalizada</span>':''}</h4>
+      <p>${escapeHTML(s.detail)}</p>
     </div>
   `).join("");
 }
@@ -912,14 +872,165 @@ function updateTopbarWeek(){
   document.getElementById("topbarWeek").textContent = `Semana ${currentTrainingWeek+1} de 4`;
 }
 
-function setupToggle(btnId, wrapId){
-  const btn = document.getElementById(btnId);
-  const wrap = document.getElementById(wrapId);
-  if(!btn || !wrap) return;
-  btn.addEventListener("click", ()=>{
-    const expanded = btn.getAttribute("aria-expanded") === "true";
-    btn.setAttribute("aria-expanded", String(!expanded));
-    wrap.hidden = expanded;
+/* =========================================================
+   CONFIGURACIÓN — motor genérico de captura
+   ---------------------------------------------------------
+   Las 3 categorías (Alimentación, Rutinas, Cortisol) comparten
+   el mismo motor (wireConfigCategory): cada una solo aporta
+   "cómo leer su formulario" y "cómo validar un elemento JSON".
+   Agregar una 4ta categoría a futuro = escribir su propio
+   panel HTML + llamar wireConfigCategory() una vez — no hay
+   que tocar este motor.
+   ========================================================= */
+const CONFIG_CATEGORY_TABS = [
+  { key:"alimentacion", label:"Alimentación", panelId:"configPanelAlimentacion" },
+  { key:"rutina", label:"Rutinas", panelId:"configPanelRutinas" },
+  { key:"cortisol", label:"Cortisol", panelId:"configPanelCortisol" }
+];
+let currentConfigCategory = "alimentacion";
+
+function renderConfigTabs(){
+  const wrap = document.getElementById("configTabs");
+  if(!wrap) return;
+  wrap.innerHTML = CONFIG_CATEGORY_TABS.map(c=>
+    `<button type="button" class="tab-btn ${c.key===currentConfigCategory?"tab-active":""}" data-cat="${c.key}">${c.label}</button>`
+  ).join("");
+  wrap.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      currentConfigCategory = btn.dataset.cat;
+      renderConfigTabs();
+      showActiveConfigPanel();
+    });
+  });
+}
+
+function showActiveConfigPanel(){
+  CONFIG_CATEGORY_TABS.forEach(c=>{
+    const panel = document.getElementById(c.panelId);
+    if(panel) panel.hidden = (c.key !== currentConfigCategory);
+  });
+}
+
+// Alterna entre "Nuevo" (formulario) y "Cargar JSON" dentro de un panel de Configuración.
+function setupConfigModeToggle(panelEl){
+  if(!panelEl) return;
+  const buttons = panelEl.querySelectorAll(".config-mode-btn");
+  const panels = panelEl.querySelectorAll(".config-mode-panel");
+  buttons.forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const mode = btn.dataset.mode;
+      buttons.forEach(b=> b.classList.toggle("active", b===btn));
+      panels.forEach(p=> p.hidden = (p.dataset.modePanel !== mode));
+    });
+  });
+}
+
+/* Motor compartido de captura (formulario + JSON) para cualquier categoría.
+   opts = {
+     formId, jsonInputId, jsonImportBtnId, jsonHintId, formHintId,
+     buildFromForm: () => ({ok, item, error}),      // lee el formulario
+     normalizeJsonItem: (raw) => ({ok, item, error}), // valida 1 elemento del JSON
+     addFn: (item) => ...,          // guarda el item ya validado
+     afterChangeFn: () => ...,      // vuelve a pintar lo que cambió
+     afterReset: () => ...          // (opcional) reconstruye partes dinámicas del form
+   } */
+function wireConfigCategory(opts){
+  const form = document.getElementById(opts.formId);
+  if(form){
+    form.addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const hint = document.getElementById(opts.formHintId);
+      const result = opts.buildFromForm();
+      if(!result.ok){ hint.textContent = result.error; return; }
+      opts.addFn(result.item);
+      hint.textContent = "Guardado ✓";
+      form.reset();
+      if(opts.afterReset) opts.afterReset();
+      opts.afterChangeFn();
+    });
+  }
+  const jsonBtn = document.getElementById(opts.jsonImportBtnId);
+  if(jsonBtn){
+    jsonBtn.addEventListener("click", ()=>{
+      const hint = document.getElementById(opts.jsonHintId);
+      const input = document.getElementById(opts.jsonInputId);
+      const raw = input.value.trim();
+      if(!raw){ hint.textContent = "Pega un JSON primero."; return; }
+      let parsed;
+      try{ parsed = JSON.parse(raw); }
+      catch(err){ hint.textContent = "JSON inválido: " + err.message; return; }
+      const items = Array.isArray(parsed) ? parsed : [parsed];
+      let count = 0;
+      const errors = [];
+      items.forEach((rawItem,i)=>{
+        const r = opts.normalizeJsonItem(rawItem);
+        if(!r.ok){ errors.push(`#${i+1}: ${r.error}`); return; }
+        opts.addFn(r.item);
+        count++;
+      });
+      hint.textContent = `${count} elemento(s) importado(s).` + (errors.length ? ` Con errores: ${errors.join(" | ")}` : "");
+      input.value = "";
+      opts.afterChangeFn();
+    });
+  }
+}
+
+/* ---------------- Sugerencias de cortisol/estrés personalizadas: storage ---------------- */
+const STORAGE_KEY_CUSTOM_STRESS = "equilibrio_custom_stress_v1";
+function loadCustomStress(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY_CUSTOM_STRESS)) || []; }catch(e){ return []; }
+}
+function saveCustomStress(arr){
+  try{ localStorage.setItem(STORAGE_KEY_CUSTOM_STRESS, JSON.stringify(arr)); }catch(e){ console.warn(e); }
+}
+function addCustomStress(t){
+  const arr = loadCustomStress();
+  t.id = "stress_"+Date.now()+"_"+Math.random().toString(36).slice(2,7);
+  arr.push(t);
+  saveCustomStress(arr);
+  return t;
+}
+function deleteCustomStress(id){
+  saveCustomStress(loadCustomStress().filter(t=>t.id!==id));
+  renderStress();
+  renderCustomStressList();
+}
+function renderCustomStressList(){
+  const container = document.getElementById("customStressList");
+  if(!container) return;
+  const arr = loadCustomStress();
+  if(arr.length === 0){ container.innerHTML = ""; return; }
+  container.innerHTML = `<p class="form-hint form-hint-static">Sugerencias agregadas (${arr.length}):</p>` +
+    arr.map(t=>`
+      <div class="custom-item-row">
+        <span>${escapeHTML(t.tag)} — <strong>${escapeHTML(t.name)}</strong></span>
+        <button type="button" class="custom-item-remove" data-id="${t.id}">Eliminar</button>
+      </div>`).join("");
+  container.querySelectorAll(".custom-item-remove").forEach(btn=>{
+    btn.addEventListener("click", ()=> deleteCustomStress(btn.dataset.id));
+  });
+}
+
+function setupStressForm(){
+  wireConfigCategory({
+    formId: "stressForm",
+    jsonInputId: "stressJsonInput",
+    jsonImportBtnId: "stressJsonImportBtn",
+    jsonHintId: "stressJsonHint",
+    formHintId: "stressFormHint",
+    buildFromForm: ()=>{
+      const tag = document.getElementById("sfTag").value;
+      const name = document.getElementById("sfName").value.trim();
+      const detail = document.getElementById("sfDetail").value.trim();
+      if(!name || !detail) return { ok:false, error:"Completa al menos nombre y descripción." };
+      return { ok:true, item:{ tag, name, detail } };
+    },
+    normalizeJsonItem: (it)=>{
+      if(!it.name || !it.detail) return { ok:false, error:"faltan campos (name, detail)" };
+      return { ok:true, item:{ tag: it.tag || "Diario", name: it.name, detail: it.detail } };
+    },
+    addFn: addCustomStress,
+    afterChangeFn: ()=>{ renderStress(); renderCustomStressList(); }
   });
 }
 
@@ -934,7 +1045,6 @@ function init(){
   renderPantry();
   populateMealFormSelects();
   setupMealForm();
-  setupToggle("toggleMealForm","mealFormWrap");
   renderCustomMealsList();
 
   renderWeekTabsRutina();
@@ -944,7 +1054,6 @@ function init(){
   addExerciseFormRow();
   addExerciseFormRow();
   setupTrainingForm();
-  setupToggle("toggleTrainingForm","trainingFormWrap");
   renderCustomTrainingList();
 
   initChecklistDatePicker();
@@ -952,6 +1061,15 @@ function init(){
   renderChecklistCalendar();
   renderSupplements();
   renderSleep();
+
+  setupStressForm();
+  renderCustomStressList();
+
+  renderConfigTabs();
+  showActiveConfigPanel();
+  ["configPanelAlimentacion","configPanelRutinas","configPanelCortisol"].forEach(id=>{
+    setupConfigModeToggle(document.getElementById(id));
+  });
 
   updateTopbarWeek();
 }
